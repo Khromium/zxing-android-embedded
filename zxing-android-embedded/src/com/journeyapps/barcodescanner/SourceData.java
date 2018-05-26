@@ -15,6 +15,10 @@ import java.io.ByteArrayOutputStream;
  * Raw preview data from a camera.
  */
 public class SourceData {
+
+    /** Is Inverted QR code */
+    private boolean isInverted = false;
+
     /** Raw YUV data */
     private byte[] data;
 
@@ -34,6 +38,13 @@ public class SourceData {
     private Rect cropRect;
 
     /**
+     * Get Inverted state
+     */
+    public boolean isInverted() {
+        return isInverted;
+    }
+
+    /**
      *
      * @param data the image data
      * @param dataWidth width of the data
@@ -50,7 +61,18 @@ public class SourceData {
         if(dataWidth * dataHeight > data.length) {
             throw new IllegalArgumentException("Image data does not match the resolution. " + dataWidth + "x" + dataHeight + " > " + data.length);
         }
+    }
 
+    public SourceData(byte[] data, int dataWidth, int dataHeight, int imageFormat, int rotation, boolean isInverted) {
+        this.data = data;
+        this.dataWidth = dataWidth;
+        this.dataHeight = dataHeight;
+        this.rotation = rotation;
+        this.imageFormat = imageFormat;
+        this.isInverted = isInverted;
+        if (dataWidth * dataHeight > data.length) {
+            throw new IllegalArgumentException("Image data does not match the resolution. " + dataWidth + "x" + dataHeight + " > " + data.length);
+        }
     }
 
     public Rect getCropRect() {

@@ -27,6 +27,10 @@ public class BarcodeResult {
 
     private final int mScaleFactor = 2;
 
+    public SourceData getSourceData() {
+        return sourceData;
+    }
+
     public BarcodeResult(Result result, SourceData sourceData) {
         this.mResult = result;
         this.sourceData = sourceData;

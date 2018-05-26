@@ -17,6 +17,7 @@
 package com.journeyapps.barcodescanner.camera;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.hardware.Camera;
 import android.os.Build;
 import android.util.Log;
@@ -28,6 +29,7 @@ import com.google.zxing.client.android.camera.CameraConfigurationUtils;
 import com.google.zxing.client.android.camera.open.OpenCameraInterface;
 import com.journeyapps.barcodescanner.Size;
 import com.journeyapps.barcodescanner.SourceData;
+import com.journeyapps.barcodescanner.Util;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -77,6 +79,7 @@ public final class CameraManager {
 
     private final class CameraPreviewCallback implements Camera.PreviewCallback {
         private PreviewCallback callback;
+        private boolean switcher = true;
 
         private Size resolution;
 
@@ -95,12 +98,28 @@ public final class CameraManager {
         public void onPreviewFrame(byte[] data, Camera camera) {
             Size cameraResolution = resolution;
             PreviewCallback callback = this.callback;
+            Camera.Parameters parameters = camera.getParameters();
+            Camera.Size size = parameters.getPreviewSize();
+            int width = size.width;
+            int height = size.height;
+            switcher = !switcher; //for invert color of qr
+
             if (cameraResolution != null && callback != null) {
                 try {
                     if(data == null) {
                         throw new NullPointerException("No preview data received");
                     }
                     int format = camera.getParameters().getPreviewFormat();
+
+                    if (switcher) {
+                        int[] pixels = Util.applyGrayScale(data, width, height);
+                        Bitmap bm = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);
+                        bm = Util.createInvertedBitmap(bm, width, height);
+                        pixels = new int[width * height];
+                        bm.getPixels(pixels, 0, bm.getWidth(), 0, 0, bm.getWidth(), bm.getHeight());
+                        encodeYUV420SP(data, pixels, bm.getWidth(), bm.getHeight());
+                    }
+
                     SourceData source = new SourceData(data, cameraResolution.width, cameraResolution.height, format, getCameraRotation());
                     callback.onPreview(source);
                 } catch (RuntimeException e) {
@@ -115,6 +134,50 @@ public final class CameraManager {
                 if(callback != null) {
                     // Should generally not happen
                     callback.onPreviewError(new Exception("No resolution available"));
+                }
+            }
+        }
+
+        /**
+         * encode yuv420sp
+         * https://stackoverflow.com/questions/29983908/i-want-to-scan-both-classic-and-inverted-light-on-dark-qr-codes-what-to-do
+         *
+         * @param yuv420sp
+         * @param argb
+         * @param width
+         * @param height
+         */
+        public void encodeYUV420SP(byte[] yuv420sp, int[] argb, int width, int height) {
+            final int frameSize = width * height;
+
+            int yIndex = 0;
+            int uvIndex = frameSize;
+
+            int a, R, G, B, Y, U, V;
+            int index = 0;
+            for (int j = 0; j < height; j++) {
+                for (int i = 0; i < width; i++) {
+
+                    a = (argb[index] & 0xff000000) >> 24; // a is not used obviously
+                    R = (argb[index] & 0xff0000) >> 16;
+                    G = (argb[index] & 0xff00) >> 8;
+                    B = (argb[index] & 0xff) >> 0;
+
+                    // well known RGB to YUV algorithm
+                    Y = ((66 * R + 129 * G + 25 * B + 128) >> 8) + 16;
+                    U = ((-38 * R - 74 * G + 112 * B + 128) >> 8) + 128;
+                    V = ((112 * R - 94 * G - 18 * B + 128) >> 8) + 128;
+
+                    // NV21 has a plane of Y and interleaved planes of VU each sampled by a factor of 2
+                    //    meaning for every 4 Y pixels there are 1 V and 1 U.  Note the sampling is every other
+                    //    pixel AND every other scanline.
+                    yuv420sp[yIndex++] = (byte) ((Y < 0) ? 0 : ((Y > 255) ? 255 : Y));
+                    if (j % 2 == 0 && index % 2 == 0) {
+                        yuv420sp[uvIndex++] = (byte) ((V < 0) ? 0 : ((V > 255) ? 255 : V));
+                        yuv420sp[uvIndex++] = (byte) ((U < 0) ? 0 : ((U > 255) ? 255 : U));
+                    }
+
+                    index++;
                 }
             }
         }

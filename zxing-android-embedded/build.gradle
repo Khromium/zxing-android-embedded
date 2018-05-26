@@ -6,7 +6,8 @@ apply plugin: 'com.jfrog.bintray'
 ext.artifactId = 'zxing-android-embedded'
 
 dependencies {
-    compile project.zxingCore
+    // compile project.zxingCore
+    compile fileTree(include: ['*.jar'], dir: 'libs')
 
     compile 'com.android.support:support-v4:25.3.1'
 
