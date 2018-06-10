@@ -120,7 +120,7 @@ public final class CameraManager {
                         encodeYUV420SP(data, pixels, bm.getWidth(), bm.getHeight());
                     }
 
-                    SourceData source = new SourceData(data, cameraResolution.width, cameraResolution.height, format, getCameraRotation());
+                    SourceData source = new SourceData(data, cameraResolution.width, cameraResolution.height, format, getCameraRotation(), switcher);
                     callback.onPreview(source);
                 } catch (RuntimeException e) {
                     // Could be:
